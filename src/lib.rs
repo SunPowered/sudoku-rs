@@ -11,5 +11,9 @@ pub type Index = usize;
 pub type Indices = ArrayVec<Index, 9>;
 
 mod data;
+mod indices;
+mod solver;
 
+pub use crate::indices::CachedIndices;
 pub use crate::data::SudokuData;
+pub use crate::solver::SudokuSolver;

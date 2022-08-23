@@ -1,55 +1,10 @@
 use arrayvec::ArrayVec;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
-use crate::{Index, Indices, Subset, Dataset, SudokuDataTree, SudokuDataCell, Value};
+use crate::{Index, Subset, Dataset, SudokuDataTree, SudokuDataCell, Value, CachedIndices};
 
-fn row_indices(row_index: Index) -> Indices {
-    (0..9).map(|i| 9 * row_index + i).collect()
-}
 
-fn column_indices(column_index: Index) -> Indices {
-    (0..9).map(|i| column_index + 9 * i).collect()
-}
 
-fn subsquare_indices(subsquare_index: Index) -> Indices {
-
-    let mut subsquare = ArrayVec::from([0; 9]);
-    let row = subsquare_index / 3;
-    let column = subsquare_index % 3;
-    let start = 27 * row + 3 * column;
-    for i in 0..3 {
-        for j in 0..3 {
-            subsquare[3*i+j] = start + 9 * i + j;
-        }
-    }
-    subsquare
-}
-
-fn generate_indices(f: fn(usize) -> Indices) -> ArrayVec<Indices, 9> {
-    (0..9).map(|i| f(i)).collect()
-}
-
-struct CachedIndices {
-    rows: ArrayVec<Indices, 9>,
-    columns: ArrayVec<Indices, 9>,
-    subsquares: ArrayVec<Indices, 9>
-}
-
-impl CachedIndices {
-    fn new() -> CachedIndices{
-        return CachedIndices {
-            rows: generate_indices(row_indices),
-            columns: generate_indices(column_indices),
-            subsquares: generate_indices(subsquare_indices)
-        }
-    }
-}
-
-pub enum SubsetState {
-    Error {index: Index, message: String},
-    Valid,
-    Complete
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SubsetCheckedState {
@@ -80,6 +35,7 @@ impl SubsetCheckedState {
             }
         }
     }
+
 }
 
 
@@ -125,12 +81,46 @@ impl SudokuData {
         self.indices.rows[row_index].iter().map(|i| self.data[*i]).collect()
     }
 
+    fn filter_subset_values(&self, subset: Subset) -> HashSet<Value> {
+        let vec: Vec<Value> = subset.into_iter().filter(|i| match i {
+            Some(_) => true,
+            None => false
+        }).map(|i| i.unwrap()).collect();
+        HashSet::from_iter(vec)
+    }
+
+    fn row_values(&self, row_index: Index) -> HashSet<Value> {
+        self.filter_subset_values(self.row(row_index))
+    }
+
     pub fn column(&self, column_index: Index) -> Subset {
         self.indices.columns[column_index].iter().map(|i| self.data[*i]).collect()
+    }
+    
+    fn column_values(&self, column_index: Index) -> HashSet<Value> {
+        self.filter_subset_values(self.column(column_index))
     }
 
     pub fn subsquare(&self, subsquare_index: Index) -> Subset {
         self.indices.subsquares[subsquare_index].iter().map(|i| self.data[*i]).collect()
+    }
+
+    fn subsquare_values(&self, subsquare_index: Index) -> HashSet<Value> {
+        self.filter_subset_values(self.subsquare(subsquare_index))
+    }
+
+    pub fn around_index(&self, index: Index) -> Vec<&Index>{
+        let (row, column, subsquare) = self.position_from_index(index);
+
+        let not_the_index = |i: &&Index| { *i != &index };
+        let mut row_indices = self.indices.rows[row].iter().collect::<Vec<&Index>>();
+        let mut column_indices = self.indices.columns[column].iter().filter(not_the_index).collect::<Vec<&Index>>();
+        let mut subsquare_indices = self.indices.subsquares[subsquare].iter().filter(not_the_index).collect::<Vec<&Index>>();
+        
+        row_indices.append(&mut column_indices);
+        row_indices.append(&mut subsquare_indices);
+        row_indices
+
     }
 
     pub fn set(&mut self, index: usize, value: u8) {
@@ -141,6 +131,13 @@ impl SudokuData {
         
     }
 
+    fn position_from_index(&self, index: Index) -> (Index, Index, Index){
+        let row = index / 9;
+        let column=  index % 9;
+        let subsquare = 3 * (row / 3) + (column / 3);
+        (row, column, subsquare)
+
+    }
     pub fn print(&self) {
         let horizontal_line ="+ - + - + - + - + - + - + - + - + - +";
         
@@ -185,6 +182,33 @@ impl SudokuData {
         return vec!(row_checks, column_checks, subsquare_checks).iter().map(|i| f(i)).collect();
 
 
+    }
+
+    fn possibles_for_index(&self, index: Index) -> HashSet<Value> {
+        let (row, column, subsquare) = self.position_from_index(index);
+        let values_set = HashSet::from_iter((1..10).into_iter());
+        let mut bad_values: HashSet<Value> = HashSet::new();
+        bad_values.extend(self.row_values(row));
+        bad_values.extend(self.column_values(column));
+        bad_values.extend(self.subsquare_values(subsquare));
+
+        values_set.difference(&bad_values).cloned().collect()
+    }
+
+    pub fn compute_possibles(&self) -> HashMap<Index, HashSet<Value>> {
+
+
+        let mut possibles: HashMap<Index, HashSet<Value>> = HashMap::new();
+
+        for (idx, value) in self.data.iter().enumerate() {
+            match value {
+                None => {
+                    possibles.insert(idx, self.possibles_for_index(idx));
+                },
+                _ => {}
+            }
+        }
+        possibles
     }
 
     
@@ -233,24 +257,6 @@ fn test_from_hashmap() {
         Subset::from([Some(2), None, None, Some(3), None, None, None, None, None])
     );
 
-}
-
-#[test]
-fn test_row_indices() {
-    let row_idxs = row_indices(4);
-    assert_eq!(row_idxs, ArrayVec::from([36, 37, 38, 39, 40, 41, 42, 43, 44]));
-}
-
-#[test]
-fn test_column_indices() {
-    let col_idxs = column_indices(3);
-    assert_eq!(col_idxs, ArrayVec::from([3, 12, 21, 30, 39, 48, 57, 66, 75]));
-}
-
-#[test]
-fn test_subsquare_indices() {
-    let subsquare_idxs = subsquare_indices(2);
-    assert_eq!(subsquare_idxs, ArrayVec::from([6, 7, 8, 15, 16, 17, 24, 25, 26]));
 }
 
 #[test]

@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead, Error};
 use std::env;
 
-use sudoku_rs::{SudokuData, SudokuDataTree};
+use sudoku_rs::{SudokuDataTree, SudokuSolver};
 
 
 
@@ -39,10 +39,9 @@ fn main() {
 
     let data_map = read_puzzle_file(&filepath).expect("Could not read provided file");
 
+    let mut solver = SudokuSolver::new(data_map);
+    // solver.solution.print();
+    solver.solve();
 
-    let puzzle_data = SudokuData::from_map(data_map);
 
-    println!("Read puzzle_data");
-    println!("First row: {:?}", puzzle_data.row(0));
-    puzzle_data.print();
 }
