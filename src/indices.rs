@@ -1,19 +1,20 @@
 use arrayvec::ArrayVec;
 use crate::{Indices, Index};
 
+//type CachedSubset = ArrayVec<Indices, 9>;
 type CachedSubset = ArrayVec<Indices, 9>;
 pub struct CachedIndices {
-    pub rows: CachedSubset,
-    pub columns: CachedSubset,
-    pub subsquares: CachedSubset
+    pub rows: Box<CachedSubset>,
+    pub columns: Box<CachedSubset>,
+    pub subsquares: Box<CachedSubset>
 }
 
 impl CachedIndices {
     pub fn new() -> CachedIndices{
         return CachedIndices {
-            rows: CachedIndices::generate_indices(CachedIndices::row_indices),
-            columns: CachedIndices::generate_indices(CachedIndices::column_indices),
-            subsquares: CachedIndices::generate_indices(CachedIndices::subsquare_indices)
+            rows: Box::new(CachedIndices::generate_indices(CachedIndices::row_indices)),
+            columns: Box::new(CachedIndices::generate_indices(CachedIndices::column_indices)),
+            subsquares: Box::new(CachedIndices::generate_indices(CachedIndices::subsquare_indices))
         }
     }
 

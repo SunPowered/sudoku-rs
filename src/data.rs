@@ -1,65 +1,40 @@
-use arrayvec::ArrayVec;
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 
-use crate::{Index, Subset, Dataset, SudokuDataTree, SudokuDataCell, Value, CachedIndices};
-
+use crate::{Index, Subset, Dataset, SudokuDataTree, SudokuDataCell, Value, CachedIndices, PossibleCells, PossibleValues};
 
 
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SubsetCheckedState {
-    Complete,
-    Valid,
-    Error(SudokuDataCell)
+
+pub struct Possibles {
+    pub cells: PossibleCells,
+    pub values: PossibleValues
 }
 
-impl SubsetCheckedState {
-    fn is_error(&self) -> bool {
-        match self {
-            SubsetCheckedState::Error(_) => {
-                true
-            }
-            _ => {
-                false
-            }
+impl Possibles {
+    pub fn remove(&mut self, &index: &Index, &value: &Value) {
+        if let Some(i) = self.cells.get_mut(&index) {
+            i.remove(&value);           
+        }
+
+        if let Some(i) = self.values.get_mut(&value) {
+            i.remove(&index);           
         }
     }
 
-    fn is_complete(&self) -> bool {
-        match self {
-            SubsetCheckedState::Complete => {
-                true
-            }
-            _ => {
-                false
-            }
+    pub fn set(&mut self, &index: &Index, &value: &Value) {
+        self.cells.remove(&index);
+        if let Some(i) = self.values.get_mut(&value) {
+            i.remove(&index);           
         }
+
+
     }
-
-}
-
-
-pub fn check_subset(data: Subset) -> SubsetCheckedState {
-    
-    let values: Vec<Value> = data.iter().filter(|i| !i.is_none()).map(|i| i.unwrap()).collect();
-    let hash_set: HashSet<u8> = HashSet::from_iter(values.clone());
-
-    if values.len() != hash_set.len() {
-        // Duplicate values
-        return SubsetCheckedState::Error(None)
-    } 
-    if hash_set.len() == 9 {
-        // Complete
-        return SubsetCheckedState::Complete
-    }     
-    // Valid, yet incomplete
-    return SubsetCheckedState::Valid    
 
 }
 
 pub struct SudokuData {
-    data: Dataset,
-    indices: CachedIndices
+    pub data: Dataset,
+    pub indices: CachedIndices
 }
 
 impl SudokuData {
@@ -166,23 +141,23 @@ impl SudokuData {
 
     }
 
-    fn check(&self) -> Vec<SubsetCheckedState> {
-        let row_checks: Vec<SubsetCheckedState> = (0..9).map(|i| check_subset(self.row(i))).collect();
-        let column_checks = (0..9).map(|i| check_subset(self.column(i))).collect();
-        let subsquare_checks = (0..9).map(|i| check_subset(self.subsquare(i))).collect();
+    // fn check(&self) -> Vec<SubsetCheckedState> {
+    //     let row_checks: Vec<SubsetCheckedState> = (0..9).map(|i| check_subset(self.row(i))).collect();
+    //     let column_checks = (0..9).map(|i| check_subset(self.column(i))).collect();
+    //     let subsquare_checks = (0..9).map(|i| check_subset(self.subsquare(i))).collect();
         
-        let f = |arr: &Vec<SubsetCheckedState>| {
-            if let Some(error) = arr.iter().filter(|i| i.is_error()).next() {
-                return *error
-            }
-            if arr.iter().all(|i| i.is_complete()) {return SubsetCheckedState::Complete}
-            return SubsetCheckedState::Valid
-        };
+    //     let f = |arr: &Vec<SubsetCheckedState>| {
+    //         if let Some(error) = arr.iter().filter(|i| i.is_error()).next() {
+    //             return *error
+    //         }
+    //         if arr.iter().all(|i| i.is_complete()) {return SubsetCheckedState::Complete}
+    //         return SubsetCheckedState::Valid
+    //     };
 
-        return vec!(row_checks, column_checks, subsquare_checks).iter().map(|i| f(i)).collect();
+    //     return vec!(row_checks, column_checks, subsquare_checks).iter().map(|i| f(i)).collect();
 
 
-    }
+    // }
 
     fn possibles_for_index(&self, index: Index) -> HashSet<Value> {
         let (row, column, subsquare) = self.position_from_index(index);
@@ -195,10 +170,10 @@ impl SudokuData {
         values_set.difference(&bad_values).cloned().collect()
     }
 
-    pub fn compute_possibles(&self) -> HashMap<Index, HashSet<Value>> {
+    fn compute_possible_cells(&self) -> PossibleCells {
 
 
-        let mut possibles: HashMap<Index, HashSet<Value>> = HashMap::new();
+        let mut possibles = PossibleCells::new();
 
         for (idx, value) in self.data.iter().enumerate() {
             match value {
@@ -210,6 +185,28 @@ impl SudokuData {
         }
         possibles
     }
+
+    pub fn compute_possibles(&self) -> Possibles {
+        let possible_cells = self.compute_possible_cells();
+
+        let mut possible_values = PossibleValues::new();
+
+        for i in 1..10 {
+            possible_values.insert(i, HashSet::new());
+        }
+
+        for (idx, values) in possible_cells.iter() {
+            for value in values {
+                if let Some(set) = possible_values.get_mut(value) {
+                    set.insert(*idx);
+                }
+
+            }
+        }
+
+        Possibles {cells: possible_cells, values: possible_values}
+    }
+
 
     
 }
@@ -259,22 +256,22 @@ fn test_from_hashmap() {
 
 }
 
-#[test]
-fn check_subset_complete() {
-    let subset = Subset::from([Some(4),Some(6),Some(8),Some(2),Some(3),Some(1),Some(9),Some(7),Some(5)]);
-    let state = check_subset(subset);
-    assert_eq!(state, SubsetCheckedState::Complete);
-    assert!(state.is_complete());
-}
+// #[test]
+// fn check_subset_complete() {
+//     let subset = Subset::from([Some(4),Some(6),Some(8),Some(2),Some(3),Some(1),Some(9),Some(7),Some(5)]);
+//     let state = check_subset(subset);
+//     assert_eq!(state, SubsetCheckedState::Complete);
+//     assert!(state.is_complete());
+// }
 
-#[test]
-fn check_subset_error() {
-    let subset = Subset::from([Some(1),Some(2),Some(3),Some(2),Some(5),Some(6),Some(7),Some(8),Some(9)]);
-    let state = check_subset(subset);
-    assert!(state.is_error());
-    match state {
-       SubsetCheckedState::Error(_) => {},
-        _ => {panic!("Expected Error");}
-   }
-}
+// #[test]
+// fn check_subset_error() {
+//     let subset = Subset::from([Some(1),Some(2),Some(3),Some(2),Some(5),Some(6),Some(7),Some(8),Some(9)]);
+//     let state = check_subset(subset);
+//     assert!(state.is_error());
+//     match state {
+//        SubsetCheckedState::Error(_) => {},
+//         _ => {panic!("Expected Error");}
+//    }
+// }
 }
