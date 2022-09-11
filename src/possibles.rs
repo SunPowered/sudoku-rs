@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use itertools::sorted;
+
 use crate::{Data, Index, Value, Indices};
 
 #[derive(Debug)]
@@ -45,15 +47,31 @@ impl Possibles {
 
     }
 
-    pub fn update(&mut self, index: &Index, value: &Value ) {
-        let hs = self.by_cells.get_mut(index).unwrap();
-        hs.remove(value);
-        if hs.is_empty() {
-            self.by_cells.remove(&index);
-        }
+    pub fn len(&self) -> usize {
+        self.by_cells.len()
+    }
+    pub fn remove(&mut self, index: &Index) {
+        self.by_cells.remove(index);
+    }
 
-        let hs = self.by_values.get_mut(value).unwrap();
-        hs.remove(index);
+    pub fn update(&mut self, index: &Index, value: &Value ) {
+        match self.by_cells.get_mut(index) {
+            Some(hs) => {
+                
+                match hs.remove(value) {
+                    true => (),
+                    false => ()
+                }},
+            None => ()
+        }
+        
+        match self.by_values.get_mut(value) {
+            Some(hs) => match hs.remove(index) {
+                true => (),
+                false => ()
+            },
+            None => ()
+        }
         
     }
 
@@ -61,6 +79,32 @@ impl Possibles {
         self.by_cells.iter()
             .filter(|(_, v)| v.len() == 1 )
             .map(|(k, v)| (*k, *v.iter().next().unwrap())).collect()
+    }
+
+    pub fn window(&self, window: Vec<Index>) -> HashMap<Value, HashSet<Index>> {
+        let window_hs: HashSet<Index> = HashSet::from_iter(window);
+        let mut out_map: HashMap<Value, HashSet<Index>> = HashMap::new();
+        self.by_values.iter().for_each(|(k, v)| {
+            let intersection_set: HashSet<Index> = v.intersection(&window_hs).copied().collect();
+            if !intersection_set.is_empty() {
+                out_map.insert(*k, intersection_set);
+            }
+        });
+        out_map
+
+    }
+
+    pub fn print(&self) {
+        println!("By Indices");
+
+        for idx in sorted(self.by_cells.keys()) {
+            println!("{} -> {:?}", idx, self.by_cells.get(idx).unwrap());
+        }
+
+        println!("By Values");
+        for val in sorted(self.by_values.keys()) {
+            println!("{} -> {:?}", val, self.by_values.get(val).unwrap());
+        }
     }
 
 }

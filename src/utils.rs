@@ -14,7 +14,7 @@ pub fn parse_from_file(filename: &str) -> Result<Data, Box<dyn Error>>{
 
     for (n, line) in reader.lines().enumerate() {
         let line = line.expect(format!("Error reading line: {}", n).as_ref());
-        println!("{:?}", line);
+        //println!("{:?}", line);
         let mut vals = line.split(",");
 
         let index = vals.next().unwrap().parse::<usize>()?;
@@ -29,7 +29,7 @@ pub fn parse_from_file(filename: &str) -> Result<Data, Box<dyn Error>>{
 pub fn print_puzzle_(data: Data) {
     
     for (idx, item) in data.iter().enumerate() {
-        let val_str = match item {
+        match item {
             Some(value) => print!(" {} ", value.to_string()),
             None => print!("   ")
         };
@@ -53,7 +53,7 @@ pub fn print_puzzle(data: &Data ) {
 
 fn print_line(data: &Data, row_index: Index) {
     let no_value = " ";
-    let row_vals = &data[row_index..row_index+9];
+    let row_vals = &data[9*row_index..9*row_index+9];
 
     let row = row_vals.chunks(3)
         .map(|chunk| 

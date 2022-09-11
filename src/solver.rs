@@ -13,7 +13,7 @@ impl Solver {
     pub fn data(&self) -> Data {
         self.data.clone()
     }
-    
+
     fn remove_single_possibles(&mut self) {
         // Checks for any single possibles in the possibles map
 
@@ -22,10 +22,27 @@ impl Solver {
         }
     }
 
+    fn remove_single_values(&mut self) {
+        // For each row, column, subsquare, check for any single possible values
+
+        for i in 0..9 {
+            for f in [Indices::row, Indices::column, Indices::subsquare] {
+                self.possibles.window(f(i)).iter().filter(|(k, v)| v.len() == 1)
+                    .map(|(k, v)| (k, v.iter().next().unwrap()))
+                    .for_each(|(&k, &v)| {   
+                        self.update(v, k);
+                    });
+            }
+            
+        }
+    }
+
     fn update(&mut self, index: Index, value: Value) {
-        dbg!("Updating solution [{}] = {}", index, value);
+        if let Some(_) = self.data[index] {return};
+
+        println!("Updating solution [{}] = {}", index, value);
         self.data[index] = Some(value);
-        self.possibles.update(&index, &value);
+        self.possibles.remove(&index);
 
         for idx in Indices::around(index) {
             self.possibles.update(&idx, &value);
@@ -33,7 +50,29 @@ impl Solver {
     }
 
     pub fn solve(&mut self) {
-        self.remove_single_possibles();
+        println!("Solving");
+        
+        let mut _possibles_count = self.possibles.len();
+        let mut count: usize = 0;
+        println!("# possibles - start: {}", self.possibles.len());
+        loop {
+            self.remove_single_possibles();
+            self.remove_single_values();
+            count += 1;
+            
+            println!("# possibles Pass: {}, Count: {}", count, self.possibles.len());
+            
+            if self.possibles.len() == 0 || self.possibles.len() == _possibles_count {
+                break
+            }
+            _possibles_count = self.possibles.len();
+        }
+
+        println!("Finished after {} passes", count);
+        if self.possibles.len() != 0 {
+            self.possibles.print();
+        }
+        
     }
 
 }
