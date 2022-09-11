@@ -1,71 +1,40 @@
-use arrayvec::ArrayVec;
-use crate::{Indices, Index};
+use std::iter::successors;
+use crate::{Index, Position};
 
-//type CachedSubset = ArrayVec<Indices, 9>;
-type CachedSubset = ArrayVec<Indices, 9>;
-pub struct CachedIndices {
-    pub rows: Box<CachedSubset>,
-    pub columns: Box<CachedSubset>,
-    pub subsquares: Box<CachedSubset>
-}
+pub struct Indices {}
 
-impl CachedIndices {
-    pub fn new() -> CachedIndices{
-        return CachedIndices {
-            rows: Box::new(CachedIndices::generate_indices(CachedIndices::row_indices)),
-            columns: Box::new(CachedIndices::generate_indices(CachedIndices::column_indices)),
-            subsquares: Box::new(CachedIndices::generate_indices(CachedIndices::subsquare_indices))
-        }
+impl Indices {
+    pub fn row(row: Index) -> Vec<Index> {
+        successors(Some(9  * row), |i| Some(i+1)).take(9).collect()
     }
 
-    fn row_indices(row_index: Index) -> Indices {
-        (0..9).map(|i| 9 * row_index + i).collect()
+    pub fn column(column: Index) -> Vec<Index> {
+        successors(Some(column), |i| Some(i+9)).take(9).collect()
     }
-    
-    fn column_indices(column_index: Index) -> Indices {
-        (0..9).map(|i| column_index + 9 * i).collect()
-    }
-    
-    fn subsquare_indices(subsquare_index: Index) -> Indices {
-    
-        let mut subsquare = ArrayVec::from([0; 9]);
-        let row = subsquare_index / 3;
-        let column = subsquare_index % 3;
-        let start = 27 * row + 3 * column;
-        for i in 0..3 {
-            for j in 0..3 {
-                subsquare[3*i+j] = start + 9 * i + j;
-            }
-        }
-        subsquare
-    }
-    
-    fn generate_indices(f: fn(usize) -> Indices) -> CachedSubset {
-        (0..9).map(|i| f(i)).collect()
-    }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    pub fn subsquare(subsquare: Index) -> Vec<Index> {
+        let start = 3 * (subsquare % 3) + 27 * (subsquare / 3);
 
+        successors(Some(start), |i| Some(i+1)).take(3).chain(
+            successors(Some(start + 9), |i| Some(i+1)).take(3).chain(
+                successors(Some(start + 18), |i| Some(i+1)).take(3)
+            )
+        ).collect()
+    }
 
-    #[test]
-    fn test_row_indices() {
-        let row_idxs = CachedIndices::row_indices(4);
-        assert_eq!(row_idxs, ArrayVec::from([36, 37, 38, 39, 40, 41, 42, 43, 44]));
+    pub fn around(idx: usize) -> Vec<Index> {
+        let position = Indices::position_from_index(idx);
+        Indices::row(position.row).iter().cloned().chain(
+            Indices::column(position.column).iter().cloned().chain(
+                Indices::subsquare(position.subsquare).iter().cloned()
+            )
+        ).filter(|&i| i != idx).collect()
     }
-    
-    #[test]
-    fn test_column_indices() {
-        let col_idxs = CachedIndices::column_indices(3);
-        assert_eq!(col_idxs, ArrayVec::from([3, 12, 21, 30, 39, 48, 57, 66, 75]));
+
+    pub fn position_from_index(idx: Index) -> Position {
+        let row = idx / 9;
+        let column = idx % 9;
+        let subsquare = 3 * (row / 3) + column / 3;   
+        Position {row, column, subsquare}        
     }
-    
-    #[test]
-    fn test_subsquare_indices() {
-        let subsquare_idxs = CachedIndices::subsquare_indices(2);
-        assert_eq!(subsquare_idxs, ArrayVec::from([6, 7, 8, 15, 16, 17, 24, 25, 26]));
-    }
-    
 }
