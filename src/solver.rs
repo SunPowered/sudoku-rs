@@ -25,16 +25,10 @@ impl Solver {
     fn remove_single_values(&mut self) {
         // For each row, column, subsquare, check for any single possible values
 
-        for i in 0..9 {
-            for f in [Indices::row, Indices::column, Indices::subsquare] {
-                self.possibles.window(f(i)).iter().filter(|(k, v)| v.len() == 1)
-                    .map(|(k, v)| (k, v.iter().next().unwrap()))
-                    .for_each(|(&k, &v)| {   
-                        self.update(v, k);
-                    });
-            }
-            
+        for (index, value) in self.possibles.find_single_values() {
+            self.update(index, value);
         }
+        
     }
 
     fn update(&mut self, index: Index, value: Value) {

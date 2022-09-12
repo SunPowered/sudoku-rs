@@ -81,6 +81,20 @@ impl Possibles {
             .map(|(k, v)| (*k, *v.iter().next().unwrap())).collect()
     }
 
+    pub fn find_single_values(&self) -> Vec<(Index, Value)> {
+        let mut singles: Vec<(Index, Value)> = vec!();
+        for i in 0..9 {
+            for f in [Indices::row, Indices::column, Indices::subsquare] {
+                self.window(f(i)).iter().filter(|(k, v)| v.len() == 1)
+                    .map(|(k, v)| (v.iter().next().unwrap(), k))
+                    .for_each( |(&k, &v)|{
+                        singles.push((k, v));
+                    });
+            }
+        }
+        singles
+    }
+
     pub fn window(&self, window: Vec<Index>) -> HashMap<Value, HashSet<Index>> {
         let window_hs: HashSet<Index> = HashSet::from_iter(window);
         let mut out_map: HashMap<Value, HashSet<Index>> = HashMap::new();
@@ -98,12 +112,12 @@ impl Possibles {
         println!("By Indices");
 
         for idx in sorted(self.by_cells.keys()) {
-            println!("{} -> {:?}", idx, self.by_cells.get(idx).unwrap());
+            println!("{} -> {:?}", idx, sorted(self.by_cells.get(idx).unwrap()).collect::<Vec<&Value>>());
         }
 
         println!("By Values");
         for val in sorted(self.by_values.keys()) {
-            println!("{} -> {:?}", val, self.by_values.get(val).unwrap());
+            println!("{} -> {:?}", val, sorted(self.by_values.get(val).unwrap()).collect::<Vec<&Index>>());
         }
     }
 
