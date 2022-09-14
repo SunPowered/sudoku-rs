@@ -52,6 +52,12 @@ impl Possibles {
     }
     pub fn remove(&mut self, index: &Index) {
         self.by_cells.remove(index);
+
+        for val in 1..10 {
+            if let Some(idxs) = self.by_values.get_mut(&val) {
+                idxs.remove(index);
+            }
+        }
     }
 
     pub fn update(&mut self, index: &Index, value: &Value ) {
@@ -85,7 +91,7 @@ impl Possibles {
         let mut singles: Vec<(Index, Value)> = vec!();
         for i in 0..9 {
             for f in [Indices::row, Indices::column, Indices::subsquare] {
-                self.window(f(i)).iter().filter(|(k, v)| v.len() == 1)
+                self.window(f(i)).iter().filter(|(_, v)| v.len() == 1)
                     .map(|(k, v)| (v.iter().next().unwrap(), k))
                     .for_each( |(&k, &v)|{
                         singles.push((k, v));
@@ -106,6 +112,54 @@ impl Possibles {
         });
         out_map
 
+    }
+    fn find_overlays(&mut self, subsquare_idxs: &HashSet<Index>, other_idxs: HashSet<Index>) {
+        let inner_idxs: HashSet<Index> = HashSet::from_iter(subsquare_idxs.intersection(&other_idxs).cloned());
+        let outer_subsquare: HashSet<Index> = HashSet::from_iter(subsquare_idxs.difference(&other_idxs).cloned());
+        let outer_other: HashSet<Index> = HashSet::from_iter(other_idxs.difference(&subsquare_idxs).cloned());        
+
+        let vals_inner = self.window(Vec::from_iter(inner_idxs));
+        let vals_outer_subsquare = self.window(Vec::from_iter(outer_subsquare.clone()));
+        let vals_outer_other = self.window(Vec::from_iter(outer_other.clone()));
+
+        for (val, _) in vals_inner {
+            let outer_subsquare_has_val = vals_outer_subsquare.contains_key(&val);
+            let outer_other_has_val = vals_outer_other.contains_key(&val);
+
+            if !outer_other_has_val {
+                //println!("Removing overlay from subsquare: {} - {:?}", val, outer_subsquare);
+                for idx in outer_subsquare.clone() {
+                    self.update(&idx, &val);
+                }
+            }
+
+            if !outer_subsquare_has_val {
+                //println!("Removing overlay from other: {} - {:?}", val, outer_other);
+                for idx in outer_other.clone() {
+                    self.update(&idx, &val);
+                }
+            }
+        }
+
+    }
+    pub fn remove_overlays(&mut self) {
+        let rows_idxs = (0..9).map(|i| Indices::row(i)).collect::<Vec<Vec<Index>>>();
+        let columns_idxs = (0..9).map(|i| Indices::column(i)).collect::<Vec<Vec<Index>>>();
+
+        for subsquare_id in 0..9 {
+            let subsquare_idxs: HashSet<Index> = HashSet::from_iter(Indices::subsquare(subsquare_id));
+
+            let super_row = subsquare_id / 3;
+            let super_column = subsquare_id % 3;
+
+            for row_id in 0..3 {
+                let row_ids: HashSet<Index> = HashSet::from_iter(rows_idxs[(3 * super_row) + row_id].clone());    
+                self.find_overlays(&subsquare_idxs, row_ids);
+                
+                let column_ids: HashSet<Index> = HashSet::from_iter(columns_idxs[(3 * super_column) + row_id].clone());
+                self.find_overlays(&subsquare_idxs, column_ids)
+            }
+        }
     }
 
     pub fn print(&self) {

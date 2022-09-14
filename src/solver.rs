@@ -52,6 +52,8 @@ impl Solver {
         loop {
             self.remove_single_possibles();
             self.remove_single_values();
+            self.possibles.remove_overlays();
+            
             count += 1;
             
             println!("# possibles Pass: {}, Count: {}", count, self.possibles.len());
@@ -65,6 +67,8 @@ impl Solver {
         println!("Finished after {} passes", count);
         if self.possibles.len() != 0 {
             self.possibles.print();
+
+            //println!("{:?}", self.possibles.window(Indices::subsquare(8)));
         }
         
     }
