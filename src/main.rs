@@ -21,7 +21,7 @@ fn main() {
 
     let mut solver = Solver::new(initial_data);
     // solver.solution.print();
-    print_puzzle(&solver.data());
+    print_puzzle(&solver.initial_data());
     solver.solve();
     print_puzzle(&solver.data());
 

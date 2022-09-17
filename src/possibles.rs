@@ -47,6 +47,13 @@ impl Possibles {
 
     }
 
+    pub fn clone(&self) -> Possibles {
+        Possibles { 
+            by_cells: self.by_cells.clone(), 
+            by_values: self.by_values.clone() 
+        }
+    }
+    
     pub fn len(&self) -> usize {
         self.by_cells.len()
     }

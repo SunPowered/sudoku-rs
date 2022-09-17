@@ -1,17 +1,31 @@
 use crate::{Data, Index, Value, Indices, Possibles};
 pub struct Solver {
+    initial_data: Data,
     data: Data,
     possibles: Possibles
 }
 
 impl Solver {
     pub fn new(data: Data) -> Solver {
+        let initial_data = data.clone();
         let possibles = Possibles::from_data(data);
-        Solver {data, possibles}
+        Solver {initial_data, data, possibles}
     }
 
-    pub fn data(&self) -> Data {
-        self.data.clone()
+    pub fn clone(&self) -> Solver {
+        Solver {
+            initial_data: self.initial_data.clone(), 
+            data: self.data.clone(), 
+            possibles: self.possibles.clone()
+        }
+    }
+
+    pub fn initial_data(&self) -> &Data {
+        &self.initial_data
+    }
+
+    pub fn data(&self) -> &Data {
+        &self.data
     }
 
     fn remove_single_possibles(&mut self) {
